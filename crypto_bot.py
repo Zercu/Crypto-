@@ -4,7 +4,7 @@ import requests
 import razorpay
 import stripe
 
-bot = telebot.TeleBot("YOUR_TELEGRAM_BOT_TOKEN")
+bot = telebot.TeleBot("6736371777:AAE1I-Blq7ZU5e-KSOeKLvzpD89zybfWueg")
 
 CRYPTO_LIST = ["bitcoin", "ethereum", "litecoin", "ripple"]
 
