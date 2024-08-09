@@ -14,7 +14,7 @@ razorpay_client = razorpay.Client(auth=("rzp_test_XXXXXXX", "XXXXXXXXXXXX"))
 stripe.api_key = "sk_test_XXXXXXXXXXXX"
 
 # Admin user ID for security
-ADMIN_ID = 123456789  # Replace with your actual Telegram user ID
+ADMIN_ID = 7010512361,6156332908,  # Replace with your actual Telegram user ID
 
 def prediction():
     prediction_text = ""
@@ -85,7 +85,7 @@ def admin_panel(message):
 
 @bot.message_handler(func=lambda message: message.text == "Change Subscription Price")
 def change_price(message):
-    if message.from_user.id == ADMIN_ID:
+    if message.from_user.id == 6156332908,7010512361:
         bot.reply_to(message, "Enter new price (e.g., 250 INR or $10):")
         bot.register_next_step_handler(message, update_price)
 
@@ -102,7 +102,7 @@ def send_announcement(message):
 def broadcast_announcement(message):
     announcement_text = message.text
     # Broadcast the message to all users; you'd need to keep a list of user_ids to send this to.
-    bot.send_message(ADMIN_ID, announcement_text)
+    bot.send_message(6156332908, announcement_text)
     bot.reply_to(message, "Announcement sent")
 
 bot.polling()
