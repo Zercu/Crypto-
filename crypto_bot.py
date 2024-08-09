@@ -18,7 +18,7 @@ stripe.api_key = "YOUR_STRIPE_SECRET_KEY"
 def prediction():
     prediction_text = ""
     for crypto in CRYPTO_LIST:
-        current_price = requests.get(f"(link unavailable)").json()[crypto]["usd"]
+        current_price = requests.get(f"https://fcsapi.com/api-v3/crypto/latest?id=78&access_key=nDFgfOJUEHOZweVbJkt2JGu99").json()[crypto]["usd"]
         previous_price = current_price * 0.95
         percentage_change = ((current_price - previous_price) / previous_price) * 100
         if percentage_change > 0:
