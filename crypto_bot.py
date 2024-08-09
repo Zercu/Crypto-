@@ -8,13 +8,10 @@ bot = telebot.TeleBot("6736371777:AAE1I-Blq7ZU5e-KSOeKLvzpD89zybfWueg")
 
 CRYPTO_LIST = ["bitcoin", "ethereum", "litecoin", "ripple"]
 
-# Razorpay setup
-razorpay_client = razorpay.Client(auth=("YOUR_RAZORPAY_KEY_ID", "YOUR_RAZORPAY_KEY_SECRET"))
+razorpay_client = razorpay.Client(auth=("rzp_test_XXXXXXX", "XXXXXXXXXXXX"))
 
-# Stripe setup
-stripe.api_key = "YOUR_STRIPE_SECRET_KEY"
+stripe.api_key = "sk_test_XXXXXXXXXXXX"
 
-# Crypto trading prediction function
 def prediction():
     prediction_text = ""
     for crypto in CRYPTO_LIST:
@@ -42,11 +39,9 @@ def subscribe(message):
 @bot.message_handler(func=lambda message: message.text in ["250 INR (Razorpay)", "$10 (Stripe)"])
 def payment_processing(message):
     if message.text == "250 INR (Razorpay)":
-        # Create a Razorpay order
         order = razorpay_client.order.create(dict(amount=25000, currency="INR", payment_capture=1))
         bot.reply_to(message, f"Please pay using this link: {order['receipt']}")
     elif message.text == "$10 (Stripe)":
-        # Create a Stripe checkout session
         checkout_session = stripe.checkout.Session.create(
             payment_method_types=['card'],
             line_items=[{'price_data': {'currency': 'usd', 'unit_amount': 1000, 'product_data': {'name': 'Crypto Trading Predictions'}}, 'quantity': 1}],
@@ -55,8 +50,37 @@ def payment_processing(message):
             cancel_url='(link unavailable)',
         )
         bot.reply_to(message, f"Please pay using this link: {checkout_session.url}")
-    # Call the prediction function and send the output to the user
     bot.reply_to(message, prediction())
+
+@bot.message_handler(commands=['admin'])
+def admin_panel(message):
+    if (link unavailable) == 123456789:  
+        keyboard = telebot.types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
+        button_1 = telebot.types.KeyboardButton(text="Change Subscription Price")
+        button_2 = telebot.types.KeyboardButton(text="Send Announcement")
+        keyboard.add(button_1, button_2)
+        bot.reply_to(message, "Admin Panel", reply_markup=keyboard)
+
+@bot.message_handler(func=lambda message: message.text == "Change Subscription Price")
+def change_price(message):
+    if (link unavailable) == 123456789:  
+        bot.reply_to(message, "Enter new price (e.g., 250 INR or $10):")
+        bot.register_next_step_handler(message, update_price)
+
+def update_price(message):
+    new_price = message.text
+    bot.reply_to(message, f"Price updated to {new_price}")
+
+@bot.message_handler(func=lambda message: message.text == "Send Announcement")
+def send_announcement(message):
+    if (link unavailable) == 123456789:  
+        bot.reply_to(message, "Enter announcement text:")
+        bot.register_next_step_handler(message, broadcast_announcement)
+
+def broadcast_announcement(message):
+    announcement_text = message.text
+    bot.send_message(123456789, announcement_text)
+    bot.reply_to(message, "Announcement sent")
 
 bot.polling()
 ```
