@@ -22,7 +22,7 @@ stripe.api_key = "sk_test_XXXXXXXXXXXX"
 ADMIN_IDS = [7010512361, 6156332908]  # Replace with your actual Telegram user IDs
 
 # Group Chat ID where reminders will be sent (replace with your group chat ID)
-GROUP_CHAT_ID = -123456789  # Replace with the actual group chat ID
+GROUP_CHAT_ID = -1002177338592 # Replace with the actual group chat ID
 
 # User subscription data storage
 user_data = {}
