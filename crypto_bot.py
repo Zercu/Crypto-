@@ -1,8 +1,10 @@
 import telebot
 import requests
+import numpy as np
+import talib  # Technical Analysis library
+from threading import Timer
 import razorpay
 import stripe
-from threading import Timer
 import random
 from datetime import datetime
 
@@ -20,87 +22,88 @@ stripe.api_key = "sk_test_XXXXXXXXXXXX"
 ADMIN_IDS = [7010512361, 6156332908]  # Replace with your actual Telegram user IDs
 
 # Group Chat ID where reminders will be sent (replace with your group chat ID)
-GROUP_CHAT_ID = -1002177338592 # Replace with the actual group chat ID
+GROUP_CHAT_ID = -123456789  # Replace with the actual group chat ID
 
 # User subscription data storage
 user_data = {}
 
-# Historical data storage
-historical_data = {}
-
-# Fetching market sentiment or latest news
-def get_market_sentiment():
-    try:
-        # Placeholder API for market sentiment/news
-        response = requests.get("https://api.coingecko.com/api/v3/global")
-        data = response.json()
-        market_sentiment = data['data']['market_cap_change_percentage_24h_usd']
-        sentiment_text = "Market is bullish!" if market_sentiment > 0 else "Market is bearish!"
-        return sentiment_text
-    except Exception as e:
-        return f"Error fetching market sentiment: {str(e)}"
-
-# Generate buy/sell/hold advice
-def generate_advice():
-    advice_list = ["Sell", "Trade", "Buy", "Hold"]
-    return random.choice(advice_list)
-
-# Fetch historical data and provide predictions
+# Fetch historical data for technical analysis
 def fetch_historical_data(crypto):
     try:
-        response = requests.get(f"https://api.coingecko.com/api/v3/coins/{crypto}/market_chart?vs_currency=usd&days=1")
+        response = requests.get(f"https://api.coingecko.com/api/v3/coins/{crypto}/market_chart?vs_currency=usd&days=30")
         data = response.json()
-        prices = data['prices']
-        historical_data[crypto] = prices
+        prices = [price[1] for price in data['prices']]  # Extract closing prices
+        return np.array(prices)
     except Exception as e:
-        historical_data[crypto] = []
-        return f"Error fetching historical data for {crypto}: {str(e)}"
+        return None
 
-def prediction(user_id):
+# High-level prediction logic using technical indicators
+def advanced_prediction_logic(prices):
     prediction_text = ""
-    sentiment = get_market_sentiment()
-    prediction_text += f"🔮 Market Sentiment: {sentiment}\n\n"
+
+    if prices is None or len(prices) < 30:
+        return "Insufficient data for advanced prediction."
+
+    # Calculate Moving Averages (Short-term and Long-term)
+    short_ma = talib.SMA(prices, timeperiod=10)[-1]
+    long_ma = talib.SMA(prices, timeperiod=30)[-1]
+
+    # Calculate RSI (Relative Strength Index)
+    rsi = talib.RSI(prices, timeperiod=14)[-1]
+
+    # Calculate Bollinger Bands
+    upperband, middleband, lowerband = talib.BBANDS(prices, timeperiod=20)
+
+    # Analyze Moving Averages
+    if short_ma > long_ma:
+        prediction_text += "🔼 Upward trend detected (Short MA > Long MA).\n"
+    else:
+        prediction_text += "🔻 Downward trend detected (Short MA < Long MA).\n"
+
+    # Analyze RSI
+    if rsi > 70:
+        prediction_text += "⚠️ RSI indicates overbought conditions (RSI > 70). Consider selling.\n"
+    elif rsi < 30:
+        prediction_text += "⚠️ RSI indicates oversold conditions (RSI < 30). Consider buying.\n"
+
+    # Analyze Bollinger Bands
+    if prices[-1] > upperband[-1]:
+        prediction_text += "⚠️ Price is near the upper Bollinger Band. Possible overbought market.\n"
+    elif prices[-1] < lowerband[-1]:
+        prediction_text += "⚠️ Price is near the lower Bollinger Band. Possible oversold market.\n"
+
+    return prediction_text
+
+# Prediction function that uses advanced logic
+def real_time_prediction(user_id):
+    prediction_text = ""
     
     for crypto in CRYPTO_LIST:
-        fetch_historical_data(crypto)
-        try:
-            # Fetching real-time crypto data from a reliable API
-            response = requests.get(f"https://api.coingecko.com/api/v3/simple/price?ids={crypto}&vs_currencies=usd")
-            data = response.json()
-            current_price = data[crypto]["usd"]
-            previous_price = current_price * 0.95  # Just an example for a previous price
-            percentage_change = ((current_price - previous_price) / previous_price) * 100
-            
-            if percentage_change > 0:
-                prediction_text += f"{crypto.capitalize()}: Price is expected to increase by {percentage_change:.2f}%\n"
-            else:
-                prediction_text += f"{crypto.capitalize()}: Price is expected to decrease by {abs(percentage_change):.2f}%\n"
-
-            # Add prediction advice
-            advice = generate_advice()
-            prediction_text += f"🔮 Advice: {advice} now!\n\n"
-            
-        except Exception as e:
-            prediction_text += f"Error fetching data for {crypto}: {str(e)}\n"
+        prices = fetch_historical_data(crypto)
+        if prices is not None:
+            advanced_prediction = advanced_prediction_logic(prices)
+            prediction_text += f"🔮 {crypto.capitalize()} Advanced Prediction:\n"
+            prediction_text += advanced_prediction + "\n"
+        else:
+            prediction_text += f"Error fetching data for {crypto}.\n"
     
     bot.send_message(user_id, prediction_text)
     
-    # Schedule the next prediction based on the user's chosen interval
-    interval = user_data[user_id].get('interval', 1)  # Default to 1 minute if not set
-    Timer(interval * 60, prediction, [user_id]).start()
+    # Run this function again after 1 minute to simulate real-time predictions
+    interval = user_data.get(user_id, {}).get('interval', 1)  # Default to 1 minute
+    Timer(interval * 60, real_time_prediction, [user_id]).start()
 
 @bot.message_handler(commands=['start'])
 def start(message):
     name = message.from_user.first_name
-    bot.reply_to(message, f"Welcome {name}! Subscribe for crypto trading predictions. Use /subscribe to choose a subscription plan.")
+    bot.reply_to(message, f"Welcome {name}! Subscribe for real-time crypto trading predictions. Use /subscribe to choose a subscription plan.")
 
 @bot.message_handler(commands=['subscribe'])
 def subscribe(message):
     if message.chat.id in ADMIN_IDS:
         bot.reply_to(message, "You're an admin and can use this bot for free!")
-        # Start sending predictions immediately without payment
-        bot.send_message(message.chat.id, "Starting free predictions for you!")
-        set_interval(message)
+        bot.send_message(message.chat.id, "Starting free real-time predictions for you!")
+        real_time_prediction(message.chat.id)
     else:
         keyboard = telebot.types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
         button_1 = telebot.types.KeyboardButton(text="250 INR (Razorpay)")
@@ -170,7 +173,7 @@ def set_interval_response(message):
     minutes = interval
     seconds = interval * 60
     bot.reply_to(message, f"Prediction interval set to {minutes} minute(s) ({seconds} seconds).")
-    prediction(message.chat.id)  # Start sending predictions immediately
+    real_time_prediction(message.chat.id)  # Start sending predictions immediately
 
 @bot.message_handler(commands=['feedback'])
 def feedback(message):
@@ -179,7 +182,6 @@ def feedback(message):
 
 def save_feedback(message):
     feedback_text = message.text
-    # Store the feedback or send it to admin
     for admin_id in ADMIN_IDS:
         bot.send_message(admin_id, f"Feedback received:\n{feedback_text}")
     bot.reply_to(message, "Thank you for your feedback! We appreciate it.")
@@ -195,4 +197,56 @@ def help(message):
     /help - Display this help message
 
     **Admin Commands:**
-    /admin - Access
+    /admin - Access the admin panel
+    """
+    bot.reply_to(message, help_text)
+
+@bot.message_handler(commands=['admin'])
+def admin_panel(message):
+    if message.from_user.id in ADMIN_IDS:
+        keyboard = telebot.types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
+        button_1 = telebot.types.KeyboardButton(text="Change Subscription Price")
+        button_2 = telebot.types.KeyboardButton(text="Send Announcement")
+        keyboard.add(button_1, button_2)
+        bot.reply_to(message, "Admin Panel", reply_markup=keyboard)
+    else:
+        bot.reply_to(message, "You don't have access to the admin panel.")
+
+@bot.message_handler(func=lambda message: message.text == "Change Subscription Price")
+def change_price(message):
+    if message.from_user.id in ADMIN_IDS:
+        bot.reply_to(message, "Enter new subscription price (e.g., 250 INR or $10):")
+        bot.register_next_step_handler(message, update_price)
+    else:
+        bot.reply_to(message, "You don't have access to change the subscription price.")
+
+def update_price(message):
+    new_price = message.text
+    # Assuming you want to store the new price globally or send a message to all admins
+    for admin_id in ADMIN_IDS:
+        bot.send_message(admin_id, f"Subscription price updated to {new_price}")
+    bot.reply_to(message, f"Subscription price updated to {new_price}")
+
+@bot.message_handler(func=lambda message: message.text == "Send Announcement")
+def send_announcement(message):
+    if message.from_user.id in ADMIN_IDS:
+        bot.reply_to(message, "Enter the announcement text:")
+        bot.register_next_step_handler(message, broadcast_announcement)
+    else:
+        bot.reply_to(message, "You don't have access to send announcements.")
+
+def broadcast_announcement(message):
+    announcement_text = message.text
+    # Broadcast the announcement to all users (assuming you have a list of user chat IDs)
+    for user_id in user_data.keys():
+        bot.send_message(user_id, f"📢 Announcement: {announcement_text}")
+    bot.reply_to(message, "Announcement sent to all users.")
+
+# Function to handle other non-command messages or errors
+@bot.message_handler(func=lambda message: True)
+def handle_all_messages(message):
+    bot.reply_to(message, "I'm sorry, I didn't understand that command. Please type /help to see the list of available commands.")
+
+# Start the bot polling
+bot.polling()
+
