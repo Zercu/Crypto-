@@ -15,7 +15,7 @@ bot = telebot.TeleBot("6736371777:AAE1I-Blq7ZU5e-KSOeKLvzpD89zybfWueg")
 CRYPTO_LIST = ["bitcoin", "ethereum", "litecoin", "ripple"]
 
 # Initialize Razorpay client with your credentials
-razorpay_client = razorpay.Client(auth=("rzp_test_XXXXXXX", "XXXXXXXXXXXX"))
+razorpay_client = razorpay.Client(auth=("rzp_test_eWkN0Ef7E9RFzY", "QPrnKBABJ9ZnoutrepcKocZJ"))
 
 # Admin user IDs for security
 ADMIN_IDS = [7010512361, 6156332908]  # Replace with your actual Telegram user IDs
