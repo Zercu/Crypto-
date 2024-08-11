@@ -443,5 +443,3 @@ def handle_all_messages(message):
 # Start the bot polling
 bot.polling()
 
-
-@⁨Meta AI⁩  show the commands of the bot
