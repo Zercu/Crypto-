@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import uuid  # For generating unique tokens
 
 # Initialize the bot with the Telegram API token
-bot = telebot.TeleBot("YOUR_TELEGRAM_API_TOKEN")
+bot = telebot.TeleBot("6736371777:AAE1I-Blq7ZU5e-KSOeKLvzpD89zybfWueg")
 
 # List of cryptocurrencies to track
 CRYPTO_LIST = ["bitcoin", "ethereum", "litecoin", "ripple"]
