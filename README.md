@@ -1,10 +1,39 @@
-## Crypto Bot Project
+# Crypto Trading Telegram Bot with Flask and Razorpay Integration
 
-This project contains a Telegram bot for cryptocurrency trading predictions.
+This is a Python-based Telegram bot designed to provide cryptocurrency trading predictions, manage user subscriptions via Razorpay, and offer a basic marketplace for buying and selling items. The bot is integrated with a Flask web server and is intended to be deployed on Heroku.
+
+## Features
+
+- **Cryptocurrency Price Predictions**: 
+  - Fetches historical price data for various cryptocurrencies using the CoinGecko API.
+  - Performs advanced technical analysis using TA-Lib indicators like Moving Averages, RSI, and Bollinger Bands.
+  - Provides users with real-time buy, sell, or hold recommendations based on the analysis.
+
+- **Subscription Management**:
+  - Users can subscribe to receive real-time cryptocurrency predictions by making payments through Razorpay.
+  - Handles payment processing with success and cancel URLs.
+
+- **Marketplace**:
+  - Users can list items for sale and make purchases within a simple marketplace system.
+  - Payment verification and notifications for buyers and sellers.
+
+- **Admin Features**:
+  - Special commands for admins to manage subscriptions, prices, and announcements.
+
+- **Webhook-Based Updates**:
+  - Efficient handling of Telegram updates using webhooks for better performance on Heroku.
+
+## Prerequisites
+
+- Python 3.7+
+- Telegram Bot API Token (from BotFather)
+- Razorpay API Keys
+- Heroku Account
 
 ## Setup Instructions
 
-1. Clone the repository.
-2. Install the required packages using `pip install -r requirements.txt`.
-3. Replace `YOUR_TELEGRAM_BOT_TOKEN` with your actual bot token in `crypto_bot.py`.
-4. Run the `crypto_bot.py` script to start the Telegram bot.
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/yourusername/your-repo-name.git
+cd your-repo-name
