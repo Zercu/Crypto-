@@ -18,7 +18,7 @@ CRYPTO_LIST = ["bitcoin", "ethereum", "litecoin", "ripple"]
 razorpay_client = razorpay.Client(auth=("rzp_test_eWkN0Ef7E9RFzY", "QPrnKBABJ9ZnoutrepcKocZJ"))
 
 # Admin user IDs for security
-ADMIN_IDS = [7010512361, 6156332908]  # Replace with your actual Telegram user IDs
+ADMIN_IDS = [7010512361, 6156332908, 7356218624]  # Replace with your actual Telegram user IDs
 
 # Group Chat ID where reminders will be sent (replace with your group chat ID)
 GROUP_CHAT_ID = -1002177338592  # Replace with the actual group chat ID
