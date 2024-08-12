@@ -2,6 +2,12 @@
 
 This is a Python-based Telegram bot designed to provide cryptocurrency trading predictions, manage user subscriptions via Razorpay, and offer a basic marketplace for buying and selling items. The bot is integrated with a Flask web server and is intended to be deployed on Heroku.
 
+
+## Deployment
+   
+[Visit the Heroku Deployment](https://your-app-name.herokuapp.com/)
+
+
 ## Features
 
 - **Cryptocurrency Price Predictions**: 
@@ -38,4 +44,3 @@ This is a Python-based Telegram bot designed to provide cryptocurrency trading p
 git clone https://github.com/yourusername/your-repo-name.git
 cd your-repo-name
 
-WEBHOOK_URL = f"https://your-heroku-app-name.herokuapp.com/{YOUR_TELEGRAM_API_TOKEN}/webhook"
