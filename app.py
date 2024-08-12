@@ -25,7 +25,7 @@ razorpay_client = razorpay.Client(auth=("YOUR_RAZORPAY_API_KEY", "YOUR_RAZORPAY_
 ADMIN_IDS = [123456789, 987654321]  # Replace with your actual Telegram user IDs
 
 # Group Chat ID where reminders will be sent (replace with your group chat ID)
-GROUP_CHAT_ID = -1001234567890  # Replace with the actual group chat ID
+GROUP_CHAT_ID = 1001234567890  # Replace with the actual group chat ID
 
 # User and marketplace data storage
 user_data = {}
@@ -165,3 +165,4 @@ def start(message):
 # Start the Flask server and the bot (Heroku will call this as the entry point)
 if __name__ == "__main__":
     app.run(debug=True)
+
