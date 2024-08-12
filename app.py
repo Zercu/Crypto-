@@ -13,7 +13,7 @@ from flask import Flask, request, redirect
 app = Flask(__name__)
 
 # Initialize the bot with the Telegram API token
-bot = telebot.TeleBot("YOUR_TELEGRAM_API_TOKEN")
+bot = telebot.TeleBot("6736371777:AAE1I-Blq7ZU5e-KSOeKLvzpD89zybfWueg")
 
 # List of cryptocurrencies to track
 CRYPTO_LIST = ["bitcoin", "ethereum", "litecoin", "ripple"]
@@ -22,10 +22,10 @@ CRYPTO_LIST = ["bitcoin", "ethereum", "litecoin", "ripple"]
 razorpay_client = razorpay.Client(auth=("YOUR_RAZORPAY_API_KEY", "YOUR_RAZORPAY_API_SECRET"))
 
 # Admin user IDs for security
-ADMIN_IDS = [123456789, 987654321]  # Replace with your actual Telegram user IDs
+ADMIN_IDS = [6736371777, 7356218624, 7010512361]  # Replace with your actual Telegram user IDs
 
 # Group Chat ID where reminders will be sent (replace with your group chat ID)
-GROUP_CHAT_ID = 1001234567890  # Replace with the actual group chat ID
+GROUP_CHAT_ID = 1002052697876  # Replace with the actual group chat ID
 
 # User and marketplace data storage
 user_data = {}
