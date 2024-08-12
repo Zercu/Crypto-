@@ -37,3 +37,5 @@ This is a Python-based Telegram bot designed to provide cryptocurrency trading p
 ```bash
 git clone https://github.com/yourusername/your-repo-name.git
 cd your-repo-name
+
+WEBHOOK_URL = f"https://your-heroku-app-name.herokuapp.com/{YOUR_TELEGRAM_API_TOKEN}/webhook"
