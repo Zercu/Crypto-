@@ -23,7 +23,7 @@ marketplace_data = {}
 SUBSCRIPTION_DURATION_DAYS = 30
 
 # UPI Payment Information
-UPI_ID = "your-upi-id@bank"
+UPI_ID = "9394106494520@paytm"
 
 # Payment Instructions
 PAYMENT_INSTRUCTIONS = (
