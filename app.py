@@ -389,7 +389,7 @@ def real_time_prediction(user_id):
         prices = fetch_historical_data(crypto)
         if prices is not None:
             advanced_prediction = advanced_prediction_logic(prices)
-                        prediction_text += f"🔮 {crypto.capitalize()} Advanced Prediction:\n"
+                        prediction_text += "🔮 {crypto.capitalize()} Advanced Prediction:\n"
             prediction_text += advanced_prediction + "\n"
 
             current_price = prices[-1]
