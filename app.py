@@ -8,7 +8,7 @@ import talib
 import requests
 
 # Initialize the bot with your Telegram API token
-bot = telebot.TeleBot("YOUR_TELEGRAM_BOT_TOKEN")
+bot = telebot.TeleBot("6736371777:AAE1I-Blq7ZU5e-KSOeKLvzpD89zybfWueg")
 
 # Admin and Group Chat IDs for security
 ADMIN_IDS = [ 6736371777, 7356218624, 7010512361 ]  # Replace with your actual Telegram user IDs
