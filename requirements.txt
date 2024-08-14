@@ -1,4 +1,4 @@
-pyTelegramBotAPI==4.7.1
-requests==2.28.1
-numpy==1.23.3
-TA-Lib==0.4.0
+pyTelegramBotAPI
+requests
+numpy 
+TA-Lib
