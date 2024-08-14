@@ -366,7 +366,7 @@ def real_time_prediction(user_id):
             if current_price > avg_price * 1.05:
                 prediction_text += "🟢 Advice: Consider Selling, price is above average.\n"
             elif current_price < avg_price * 0.95:
-                prediction_text += "🔴 Advice: Consider Buying, price is below average.\n"
+                prediction_text += " 🔴 Advice: Consider Buying, price is below average.\n"
             else:
                 prediction_text += "🟡 Advice: Hold, price is near average.\n"
         else:
