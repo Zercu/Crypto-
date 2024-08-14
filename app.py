@@ -2,16 +2,10 @@ import telebot
 from telebot import types
 from datetime import datetime, timedelta
 import uuid
-import logging
-import requests
-from requests.exceptions import RequestException
+from threading import Timer
 import numpy as np
 import talib
-import psycopg2
-from apscheduler.schedulers.background import BackgroundScheduler
-
-# Initialize logging
-logging.basicConfig(level=logging.INFO)
+import requests
 
 # Initialize the bot with your Telegram API token
 bot = telebot.TeleBot("6736371777:AAE1I-Blq7ZU5e-KSOeKLvzpD89zybfWueg")
@@ -19,6 +13,11 @@ bot = telebot.TeleBot("6736371777:AAE1I-Blq7ZU5e-KSOeKLvzpD89zybfWueg")
 # Admin and Group Chat IDs for security
 ADMIN_IDS = [6736371777, 7356218624, 7010512361]  # Replace with your actual Telegram user IDs
 GROUP_CHAT_ID = 1002052697876  # Replace with your actual group chat ID where notifications go
+
+# User and marketplace data storage
+user_data = {}
+marketplace_data = {}
+payment_tokens = {}
 
 # Subscription cost
 SUBSCRIPTION_COST = 350  # in INR
@@ -36,119 +35,11 @@ PAYMENT_INSTRUCTIONS = (
     "Once your payment is verified by an admin, your subscription will be activated."
 )
 
-# PostgreSQL connection setup
-conn = psycopg2.connect(
-    dbname='your_db_name', user='your_db_user', password='your_db_password', host='localhost', port='5432'
-)
-cursor = conn.cursor()
-
-# Create necessary tables
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS users (
-        user_id BIGINT PRIMARY KEY,
-        status TEXT,
-        payment_verified BOOLEAN DEFAULT FALSE,
-        subscription_active BOOLEAN DEFAULT FALSE,
-        subscription_expiry TIMESTAMP,
-        payment_token TEXT,
-        interval INTEGER DEFAULT 60
-    )
-''')
-
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS marketplace (
-        item_id UUID PRIMARY KEY,
-        name TEXT,
-        description TEXT,
-        price TEXT,
-        seller_id BIGINT REFERENCES users(user_id),
-        buyer_id BIGINT,
-        status TEXT
-    )
-''')
-
-conn.commit()
-
-# Scheduler for real-time predictions
-scheduler = BackgroundScheduler()
-scheduler.start()
-
-def fetch_historical_data(crypto):
-    try:
-        response = requests.get(f"https://api.coingecko.com/api/v3/coins/{crypto}/market_chart?vs_currency=usd&days=30")
-        response.raise_for_status()  # Raises an error for bad responses
-        data = response.json()
-        prices = [price[1] for price in data['prices']]
-        return np.array(prices)
-    except RequestException as e:
-        logging.error(f"Error fetching data for {crypto}: {e}")
-        return None
-
-def advanced_prediction_logic(prices):
-    if prices is None or len(prices) < 30:
-        return "Insufficient data for advanced prediction."
-
-    short_ma = talib.SMA(prices, timeperiod=10)[-1]
-    long_ma = talib.SMA(prices, timeperiod=30)[-1]
-    rsi = talib.RSI(prices, timeperiod=14)[-1]
-    upperband, middleband, lowerband = talib.BBANDS(prices, timeperiod=20)
-
-    prediction_text = ""
-    if short_ma > long_ma:
-        prediction_text += "🔼 Upward trend detected (Short MA > Long MA).\n"
-    else:
-        prediction_text += "🔻 Downward trend detected (Short MA < Long MA).\n"
-
-    if rsi > 70:
-        prediction_text += "⚠️ RSI indicates overbought conditions (RSI > 70). Consider selling.\n"
-    elif rsi < 30:
-        prediction_text += "⚠️ RSI indicates oversold conditions (RSI < 30). Consider buying.\n"
-
-    if prices[-1] > upperband[-1]:
-        prediction_text += "⚠️ Price is near the upper Bollinger Band. Possible overbought market.\n"
-    elif prices[-1] < lowerband[-1]:
-        prediction_text += "⚠️ Price is near the lower Bollinger Band. Possible oversold market.\n"
-
-    return prediction_text
-
-def real_time_prediction(user_id):
-    prediction_text = ""
-    cursor.execute("SELECT interval FROM users WHERE user_id = %s", (user_id,))
-    user = cursor.fetchone()
-    interval = user[0] if user else 60  # Default to 60 minutes
-
-    for crypto in ["bitcoin", "ethereum", "litecoin", "ripple", "gold", "usd", "inr", "rub"]:
-        prices = fetch_historical_data(crypto)
-        if prices is not None:
-            advanced_prediction = advanced_prediction_logic(prices)
-            prediction_text += f"🔮 {crypto.capitalize()} Advanced Prediction:\n"
-            prediction_text += advanced_prediction + "\n"
-
-            current_price = prices[-1]
-            avg_price = np.mean(prices)
-            if current_price > avg_price * 1.05:
-                prediction_text += "🟢 Advice: Consider Selling, price is above average.\n"
-            elif current_price < avg_price * 0.95:
-                prediction_text += "🔴 Advice: Consider Buying, price is below average.\n"
-            else:
-                prediction_text += "🟡 Advice: Hold, price is near average.\n"
-        else:
-            prediction_text += f"Error fetching data for {crypto}.\n"
-
-    bot.send_message(user_id, prediction_text)
-    scheduler.add_job(real_time_prediction, 'interval', minutes=interval, args=[user_id])
-
+# Command to start the bot and send info, also notify admins in the group
 @bot.message_handler(commands=['start'])
 def start(message):
     user_id = message.chat.id
     name = message.from_user.first_name
-
-    # Check if the user is already in the database
-    cursor.execute("SELECT user_id FROM users WHERE user_id = %s", (user_id,))
-    if not cursor.fetchone():
-        cursor.execute("INSERT INTO users (user_id, status) VALUES (%s, %s)", (user_id, 'new_user'))
-        conn.commit()
-
     bot.reply_to(message, f"Welcome {name}! Learn more about the bot below.")
     send_bot_info(user_id)
 
@@ -173,26 +64,20 @@ def send_bot_info(user_id):
 def subscribe(message):
     user_id = message.chat.id
     payment_token = str(uuid.uuid4())
-
-    cursor.execute("""
-        UPDATE users
-        SET status = 'awaiting_payment',
-            payment_verified = FALSE,
-            subscription_active = FALSE,
-            payment_token = %s
-        WHERE user_id = %s
-    """, (payment_token, user_id))
-    conn.commit()
+    payment_tokens[user_id] = payment_token
+    user_data[user_id] = {
+        'status': 'awaiting_payment',
+        'payment_verified': False,
+        'subscription_active': False,
+        'payment_token': payment_token
+    }
 
     bot.send_message(user_id, f"Please make a payment of ₹{SUBSCRIPTION_COST} to the UPI ID and send a screenshot for verification. Your payment token is `{payment_token}`.")
 
 @bot.message_handler(commands=['confirm_payment'])
 def confirm_payment(message):
     user_id = message.chat.id
-    cursor.execute("SELECT payment_verified FROM users WHERE user_id = %s", (user_id,))
-    payment_verified = cursor.fetchone()[0]
-
-    if payment_verified:
+    if user_data.get(user_id, {}).get('payment_verified', False):
         bot.reply_to(message, "Your payment has already been verified.")
         return
     
@@ -204,12 +89,7 @@ def process_payment_confirmation(message):
     if not message.photo:
         bot.reply_to(message, "Please send a valid screenshot.")
         return
-
-    payment_screenshot = message.photo[-1].file_id
-
-    cursor.execute("UPDATE users SET payment_screenshot = %s WHERE user_id = %s", (payment_screenshot, user_id))
-    conn.commit()
-
+    user_data[user_id]['payment_screenshot'] = message.photo[-1].file_id
     bot.send_message(user_id, "Thank you for the payment details. Please wait for admin approval to activate your subscription.")
 
     # Send screenshot and details to admins for verification
@@ -219,7 +99,7 @@ def process_payment_confirmation(message):
         cancel_button = types.InlineKeyboardButton("❌ Cancel Payment", callback_data=f"cancel_{user_id}")
         keyboard.add(confirm_button, cancel_button)
 
-                bot.send_photo(admin_id, payment_screenshot, caption=f"User {user_id} has submitted a payment screenshot with token: {payment_token}.", reply_markup=keyboard)
+        bot.send_photo(admin_id, message.photo[-1].file_id, caption=f"User {user_id} has submitted a payment screenshot with token: {user_data[user_id]['payment_token']}.", reply_markup=keyboard)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("confirm_") or call.data.startswith("cancel_"))
 def handle_payment_approval(call):
@@ -227,15 +107,8 @@ def handle_payment_approval(call):
     user_id = int(call.data.split("_")[1])
 
     if call.data.startswith("confirm_"):
-        cursor.execute("""
-            UPDATE users
-            SET subscription_active = TRUE,
-                subscription_expiry = %s,
-                payment_verified = TRUE
-            WHERE user_id = %s
-        """, (datetime.now() + timedelta(days=SUBSCRIPTION_DURATION_DAYS), user_id))
-        conn.commit()
-
+        user_data[user_id]['subscription_active'] = True
+        user_data[user_id]['subscription_expiry'] = datetime.now() + timedelta(days=SUBSCRIPTION_DURATION_DAYS)
         bot.send_message(user_id, "Your subscription has been activated! Enjoy premium features.")
         bot.send_message(admin_id, f"Subscription for user {user_id} has been activated.")
     elif call.data.startswith("cancel_"):
@@ -252,16 +125,8 @@ def give_subscription(message):
     try:
         _, user_id = message.text.split()
         user_id = int(user_id)
-
-        cursor.execute("""
-            UPDATE users
-            SET subscription_active = TRUE,
-                subscription_expiry = %s,
-                payment_verified = TRUE
-            WHERE user_id = %s
-        """, (datetime.now() + timedelta(days=SUBSCRIPTION_DURATION_DAYS), user_id))
-        conn.commit()
-
+        user_data[user_id]['subscription_active'] = True
+        user_data[user_id]['subscription_expiry'] = datetime.now() + timedelta(days=SUBSCRIPTION_DURATION_DAYS)
         bot.send_message(user_id, "An admin has manually activated your subscription. Enjoy premium features!")
         bot.reply_to(message, f"Subscription for user {user_id} has been manually activated.")
     except ValueError:
@@ -277,17 +142,12 @@ def set_free_user(message):
     try:
         _, user_id = message.text.split()
         user_id = int(user_id)
-
-        cursor.execute("""
-            UPDATE users
-            SET status = 'free_user',
-                subscription_active = TRUE,
-                subscription_expiry = %s,
-                payment_verified = TRUE
-            WHERE user_id = %s
-        """, (datetime.now() + timedelta(days=SUBSCRIPTION_DURATION_DAYS), user_id))
-        conn.commit()
-
+        user_data[user_id] = {
+            'status': 'free_user',
+            'payment_verified': True,
+            'subscription_active': True,
+            'subscription_expiry': datetime.now() + timedelta(days=SUBSCRIPTION_DURATION_DAYS)
+        }
         bot.send_message(user_id, "You have been granted free access to premium features by an admin!")
         bot.reply_to(message, f"User {user_id} has been set as a free user.")
     except ValueError:
@@ -299,9 +159,12 @@ def announce(message):
     if message.chat.id not in ADMIN_IDS:
         bot.reply_to(message, "You are not authorized to make announcements.")
         return
-
-    announcement = message.text.split(maxsplit=1)[1]  # Get the announcement text
-    bot.send_message(GROUP_CHAT_ID, f"📢 *Announcement:* {announcement}", parse_mode='Markdown')
+    
+    try:
+        announcement = message.text.split(maxsplit=1)[1]  # Get the announcement text
+        bot.send_message(GROUP_CHAT_ID, f"📢 *Announcement:* {announcement}", parse_mode='Markdown')
+    except IndexError:
+        bot.reply_to(message, "Please provide an announcement message after the command.")
 
 # Admin command to set instructional video
 @bot.message_handler(commands=['set_video'])
@@ -319,18 +182,20 @@ def save_video(message):
         if command not in ['/start', '/subscribe', '/confirm_payment', '/marketplace']:
             bot.reply_to(message, "Invalid command. Please enter a valid command.")
             return
-
         bot.send_message(message.chat.id, f"Please upload the video for the command {command}.")
         bot.register_next_step_handler(message, lambda msg: attach_video_to_command(msg, command))
     except IndexError:
         bot.reply_to(message, "Please specify a command.")
 
 def attach_video_to_command(message, command):
+    if not message.video:
+        bot.reply_to(message, "Please send a valid video file.")
+        return
+    
     video_file_id = message.video.file_id
-
-    cursor.execute("INSERT INTO command_videos (command, video_file_id) VALUES (%s, %s) ON CONFLICT (command) DO UPDATE SET video_file_id = %s", (command, video_file_id, video_file_id))
-    conn.commit()
-
+    if 'command_videos' not in user_data:
+        user_data['command_videos'] = {}
+    user_data['command_videos'][command] = video_file_id
     bot.reply_to(message, f"Video has been attached to the command {command}.")
 
 # Enhanced Marketplace: Listing, Viewing, Approving Items, and Viewing Details
@@ -349,16 +214,21 @@ def save_item(message):
     try:
         item_name, item_description, item_price = map(str.strip, message.text.split(','))
         item_id = str(uuid.uuid4())
-
-        cursor.execute("""
-            INSERT INTO marketplace (item_id, name, description, price, seller_id, status)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """, (item_id, item_name, item_description, item_price, user_id, 'pending_approval' if 'iphone' in item_name.lower() else 'available'))
-        conn.commit()
-
+        marketplace_data[item_id] = {
+            'name': item_name,
+            'description': item_description,
+            'price': item_price,
+            'seller_id': user_id,
+            'buyer_id': None,
+            'status': 'pending_approval' if 'iphone' in item_name.lower() else 'available'
+        }
         bot.send_message(user_id, f"Item '{item_name}' has been listed successfully with ID: {item_id}. Please note that a 25% commission will be deducted from the selling price.")
 
+        # Notify the seller of the commission
+        bot.send_message(user_id, f"Your item '{item_name}' requires admin approval before being available in the marketplace. Please note that 25% of the selling price will be deducted as commission.")
+
         if 'iphone' in item_name.lower():
+            # Notify admins for approval
             for admin_id in ADMIN_IDS:
                 keyboard = types.InlineKeyboardMarkup()
                 approve_button = types.InlineKeyboardButton("✅ Approve Listing", callback_data=f"approve_{item_id}")
@@ -367,6 +237,7 @@ def save_item(message):
                 bot.send_message(admin_id, f"User {user_id} has listed a sensitive item '{item_name}'.", reply_markup=keyboard)
         else:
             bot.send_message(user_id, f"Your item '{item_name}' is now available in the marketplace.")
+
     except ValueError:
         bot.send_message(user_id, "Invalid format. Please try again using the format: Name, Description, Price.")
 
@@ -376,34 +247,24 @@ def handle_item_approval(call):
     item_id = call.data.split("_")[1]
 
     if call.data.startswith("approve_"):
-        cursor.execute("UPDATE marketplace SET status = 'available' WHERE item_id = %s", (item_id,))
-        conn.commit()
-
-        cursor.execute("SELECT seller_id FROM marketplace WHERE item_id = %s", (item_id,))
-        seller_id = cursor.fetchone()[0]
-        bot.send_message(seller_id, f"Your item '{marketplace_data[item_id]['name']}' has been approved by an admin and is now available for purchase.")
+        marketplace_data[item_id]['status'] = 'available'
+        bot.send_message(marketplace_data[item_id]['seller_id'], f"Your item '{marketplace_data[item_id]['name']}' has been approved by an admin and is now available for purchase.")
         bot.send_message(admin_id, f"Item {item_id} has been approved and is now available in the marketplace.")
     elif call.data.startswith("decline_"):
-        cursor.execute("DELETE FROM marketplace WHERE item_id = %s", (item_id,))
-        conn.commit()
-
-        cursor.execute("SELECT seller_id FROM marketplace WHERE item_id = %s", (item_id,))
-        seller_id = cursor.fetchone()[0]
-        bot.send_message(seller_id, f"Your item '{marketplace_data[item_id]['name']}' was declined by an admin. Please contact support for more information.")
+        bot.send_message(marketplace_data[item_id]['seller_id'], f"Your item '{marketplace_data[item_id]['name']}' was declined by an admin. Please contact support for more information.")
+        marketplace_data.pop(item_id)  # Remove the item from the marketplace data
         bot.send_message(admin_id, f"Item {item_id} has been declined and removed from the marketplace.")
 
 @bot.message_handler(commands=['view_items'])
 def view_items(message):
-    cursor.execute("SELECT item_id, name, price FROM marketplace WHERE status = 'available'")
-    items = cursor.fetchall()
-
-    if not items:
+    if not marketplace_data:
         bot.reply_to(message, "No items listed yet.")
         return
 
     items_text = "📦 *Marketplace Items:*\n\n"
-    for item_id, name, price in items:
-        items_text += f"ID: {item_id}\nName: {name}\nPrice: {price} INR\n\n"
+    for item_id, details in marketplace_data.items():
+        if details['status'] == 'available':
+            items_text += f"ID: {item_id}\nName: {details['name']}\nPrice: {details['price']} INR\n\n"
 
     bot.send_message(message.chat.id, items_text, parse_mode='Markdown')
 
@@ -414,21 +275,22 @@ def view_item(message):
 
 def show_item_details(message):
     item_id = message.text.strip()
-    cursor.execute("SELECT name, description, price, status FROM marketplace WHERE item_id = %s", (item_id,))
-    item = cursor.fetchone()
+    if item_id not in marketplace_data:
+        bot.reply_to(message, "Invalid item ID. Please try again.")
+        return
 
-    if not item or item[3] !='available':
+    item = marketplace_data[item_id]
+    if item['status'] != 'available':
         bot.reply_to(message, "This item is no longer available.")
         return
 
-    name, description, price, _ = item
     admin_username = "@sale2xx"  # Admin username that will handle item purchases
 
     item_details = (
         f"📦 *Item Details:*\n\n"
-        f"Name: {name}\n"
-        f"Description: {description}\n"
-        f"Price: {price} INR\n\n"
+        f"Name: {item['name']}\n"
+        f"Description: {item['description']}\n"
+        f"Price: {item['price']} INR\n\n"
         f"To purchase this item, please contact the admin: {admin_username}"
     )
     bot.send_message(message.chat.id, item_details, parse_mode='Markdown')
@@ -440,14 +302,9 @@ def stats(message):
         bot.reply_to(message, "You are not authorized to view stats.")
         return
 
-    cursor.execute("SELECT COUNT(*) FROM users")
-    total_users = cursor.fetchone()[0]
-
-    cursor.execute("SELECT COUNT(*) FROM users WHERE subscription_active = TRUE")
-    active_subscribers = cursor.fetchone()[0]
-
-    cursor.execute("SELECT COUNT(*) FROM users WHERE status = 'free_user'")
-    free_users = cursor.fetchone()[0]
+    total_users = len(user_data)
+    active_subscribers = sum(1 for u in user_data.values() if u.get('subscription_active'))
+    free_users = sum(1 for u in user_data.values() if u.get('status') == 'free_user')
 
     stats_text = (
         f"📊 *Bot Statistics:*\n\n"
@@ -496,12 +353,74 @@ def support(message):
     bot.send_message(message.chat.id, support_text, parse_mode='Markdown')
 
 # Enhanced prediction system
+def fetch_historical_data(crypto):
+    try:
+        response = requests.get(f"https://api.coingecko.com/api/v3/coins/{crypto}/market_chart?vs_currency=usd&days=30")
+        data = response.json()
+        prices = [price[1] for price in data['prices']]
+        return np.array(prices)
+    except Exception as e:
+        return None
+
+def advanced_prediction_logic(prices):
+    prediction_text = ""
+
+    if prices is None or len(prices) < 30:
+        return "Insufficient data for advanced prediction."
+
+    short_ma = talib.SMA(prices, timeperiod=10)[-1]
+    long_ma = talib.SMA(prices, timeperiod=30)[-1]
+    rsi = talib.RSI(prices, timeperiod=14)[-1]
+    upperband, middleband, lowerband = talib.BBANDS(prices, timeperiod=20)
+
+    if short_ma > long_ma:
+        prediction_text += "🔼 Upward trend detected (Short MA > Long MA).\n"
+    else:
+        prediction_text += "🔻 Downward trend detected (Short MA < Long MA).\n"
+
+    if rsi > 70:
+        prediction_text += "⚠️ RSI indicates overbought conditions (RSI > 70). Consider selling.\n"
+    elif rsi < 30:
+        prediction_text += "⚠️ RSI indicates oversold conditions (RSI < 30). Consider buying.\n"
+
+    if prices[-1] > upperband[-1]:
+        prediction_text += "⚠️ Price is near the upper Bollinger Band. Possible overbought market.\n"
+    elif prices[-1] < lowerband[-1]:
+        prediction_text += "⚠️ Price is near the lower Bollinger Band. Possible oversold market.\n"
+
+    return prediction_text
+
+def real_time_prediction(user_id):
+    prediction_text = ""
+
+    for crypto in ["bitcoin", "ethereum", "litecoin", "ripple", "gold", "usd", "inr", "rub"]:
+        prices = fetch_historical_data(crypto)
+                if prices is not None:
+            advanced_prediction = advanced_prediction_logic(prices)
+            prediction_text += f"🔮 {crypto.capitalize()} Advanced Prediction:\n"
+            prediction_text += advanced_prediction + "\n"
+
+            current_price = prices[-1]
+            avg_price = np.mean(prices)
+            if current_price > avg_price * 1.05:
+                prediction_text += "🟢 Advice: Consider Selling, price is above average.\n"
+            elif current_price < avg_price * 0.95:
+                prediction_text += "🔴 Advice: Consider Buying, price is below average.\n"
+            else:
+                prediction_text += "🟡 Advice: Hold, price is near average.\n"
+        else:
+            prediction_text += f"Error fetching data for {crypto}.\n"
+
+    bot.send_message(user_id, prediction_text)
+
+    # Set up the next prediction based on the user-defined interval
+    interval = user_data.get(user_id, {}).get('interval', 60)  # Default to 60 minutes
+    Timer(interval * 60, real_time_prediction, [user_id]).start()
+
 @bot.message_handler(commands=['set_interval'])
 def set_interval(message):
     user_id = message.chat.id
-    cursor.execute("SELECT subscription_active FROM users WHERE user_id = %s", (user_id,))
-    user = cursor.fetchone()
-    if not user or not user[0]:
+    if user_id not in user_data or not user_data[user_id].get('subscription_active', False):
         bot.reply_to(message, "You need an active subscription to set prediction intervals.")
         return
 
@@ -516,13 +435,26 @@ def save_interval(message):
             bot.reply_to(user_id, "The interval must be at least 1 minute.")
             return
 
-        cursor.execute("UPDATE users SET interval = %s WHERE user_id = %s", (interval, user_id))
-        conn.commit()
-
+        user_data[user_id]['interval'] = interval
         bot.send_message(user_id, f"Prediction interval set to {interval} minutes.")
         real_time_prediction(user_id)
     except ValueError:
         bot.reply_to(user_id, "Please enter a valid number for the interval.")
+
+# Function to provide bot stats to users
+@bot.message_handler(commands=['bot_stats'])
+def bot_stats(message):
+    total_users = len(user_data)
+    active_subscribers = sum(1 for u in user_data.values() if u.get('subscription_active'))
+    free_users = sum(1 for u in user_data.values() if u.get('status') == 'free_user')
+
+    stats_text = (
+        f"📊 *Bot Statistics:*\n\n"
+        f"Total Users: {total_users}\n"
+        f"Active Subscribers: {active_subscribers}\n"
+        f"Free Users: {free_users}\n"
+    )
+    bot.send_message(message.chat.id, stats_text, parse_mode='Markdown')
 
 # Admin command to remove users
 @bot.message_handler(commands=['remove_user'])
@@ -534,10 +466,11 @@ def remove_user(message):
     try:
         _, user_id = message.text.split()
         user_id = int(user_id)
-        cursor.execute("DELETE FROM users WHERE user_id = %s", (user_id,))
-        conn.commit()
-
-        bot.reply_to(message, f"User {user_id} has been removed from the bot.")
+        if user_id in user_data:
+            del user_data[user_id]
+            bot.reply_to(message, f"User {user_id} has been removed from the bot.")
+        else:
+            bot.reply_to(message, "User not found.")
     except ValueError:
         bot.reply_to(message, "Usage: /remove_user <user_id>")
 
@@ -548,10 +481,5 @@ def fallback(message):
 
 # Start the bot polling
 if __name__ == "__main__":
-    try:
-        bot.polling(none_stop=True)
-    except Exception as e:
-        logging.error(f"Bot polling failed: {e}")
-        bot.stop_polling()
-        scheduler.shutdown()
+    bot.polling(none_stop=True)
 
