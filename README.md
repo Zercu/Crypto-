@@ -1,115 +1,167 @@
-# Crypto Trading Telegram Bot with Flask and Razorpay Integration
+To deploy the bot on an Ubuntu VPS through GitHub, you can follow these detailed steps:
 
-This is a Python-based Telegram bot designed to provide cryptocurrency trading predictions, manage user subscriptions via Razorpay, and offer a basic marketplace for buying and selling items. The bot is integrated with a Flask web server and is intended to be deployed on Heroku.
+### 1. **Initial Setup on Your VPS**
 
+1. **Log in to your VPS**: Use SSH to connect to your VPS.
+   ```sh
+   ssh your-username@your-vps-ip-address
+   ```
 
-## Deployment
-   
-[Visit the Heroku Deployment](https://your-app-name.herokuapp.com/)
+2. **Update and Upgrade the System**:
+   ```sh
+   sudo apt-get update && sudo apt-get upgrade -y
+   ```
 
+3. **Install Required Software**:
+   - **Python 3.x**: Ensure Python is installed.
+   ```sh
+   sudo apt-get install python3 python3-pip python3-venv git -y
+   ```
 
-## Commands
+### 2. **Set Up the Project**
 
-### General User Commands
+1. **Clone Your GitHub Repository**:
+   ```sh
+   git clone https://github.com/yourusername/your-bot-project.git
+   cd your-bot-project
+   ```
 
-- **`/start`**: 
-  - Initializes the bot and welcomes the user. Provides options for subscribing to the prediction service or accessing the marketplace.
-  
-- **`/subscribe`**: 
-  - Subscribe to the real-time prediction service. Options include 250 INR via Razorpay, with future support for PayPal.
-  
-- **`/set_interval`**: 
-  - Set the interval for receiving predictions. Options range from 1 to 5 minutes.
+2. **Create a Virtual Environment**:
+   - **Optional but Recommended**: This keeps your project dependencies isolated.
+   ```sh
+   python3 -m venv venv
+   source venv/bin/activate
+   ```
 
-- **`/feedback`**: 
-  - Send feedback or report any issues with the bot. The feedback is sent to the admin for review.
+3. **Install Dependencies**:
+   ```sh
+   pip install -r requirements.txt
+   ```
 
-- **`/help`**: 
-  - Display a help message with a list of available commands.
+4. **Create and Configure the `.env` File**:
+   - Copy the `.env.example` if it exists, or create a new `.env` file with your bot's credentials.
+   ```sh
+   cp .env.example .env
+   nano .env
+   ```
+   - Add your environment variables (replace with your actual values):
+   ```dotenv
+   TELEGRAM_BOT_TOKEN="your-telegram-bot-token"
+   ADMIN_IDS="123456789,987654321"
+   GROUP_CHAT_ID="your-group-chat-id"
+   UPI_ID="your-upi-id"
+   ```
 
-- **`/marketplace`**: 
-  - Access the marketplace to list items or view items for sale.
+### 3. **Running the Bot**
 
-### Admin Commands
+1. **Run the Bot Manually**:
+   - Ensure you are in your project directory and the virtual environment is activated:
+   ```sh
+   source venv/bin/activate
+   python3 app.py
+   ```
 
-- **`/admin`**: 
-  - Access the admin panel. Available only to users with admin privileges.
+   - **Note**: Running the bot this way will stop it if the terminal session is closed. To keep the bot running in the background, use tools like `screen`, `tmux`, or `nohup`.
 
-- **`Change Subscription Price`**: 
-  - Change the subscription price for the prediction service. This command is accessed through the admin panel.
+2. **Run the Bot in the Background (Using `nohup`)**:
+   ```sh
+   nohup python3 app.py &
+   ```
 
-- **`Send Announcement`**: 
-  - Send an announcement to all users. This command is accessed through the admin panel.
+   - This command runs the bot in the background, redirecting output to a file called `nohup.out`.
 
-- **`View Subscriptions`**: 
-  - View current active subscriptions. This command is accessed through the admin panel.
+### 4. **Setting Up the Bot to Start on System Boot**
 
-### Marketplace Commands
+1. **Using `systemd` to Create a Service**:
 
-- **`List Item`**: 
-  - List an item for sale in the marketplace. The user must provide the item name, description, price in INR, and UPI ID.
+   - **Create a new service file**: `/etc/systemd/system/yourbot.service`
+   ```sh
+   sudo nano /etc/systemd/system/yourbot.service
+   ```
 
-- **`View Items`**: 
-  - View all items currently listed in the marketplace.
+   - **Add the following configuration**:
+   ```ini
+   [Unit]
+   Description=Telegram Bot Service
+   After=network.target
 
-- **`/confirm <item_token>`**: 
-  - Confirm the sale of an item as a seller using the unique item token.
+   [Service]
+   User=your-username
+   WorkingDirectory=/path/to/your-bot-project
+   ExecStart=/path/to/your-bot-project/venv/bin/python3 /path/to/your-bot-project/app.py
+   Restart=always
 
-## How It Works
+   [Install]
+   WantedBy=multi-user.target
+   ```
 
-1. **Crypto Predictions**:
-   - The bot uses technical indicators like Moving Averages, RSI, and Bollinger Bands to generate predictions. Users can react to predictions with "🔼 Up Tick" or "🔻 Down Tick".
+   Replace `/path/to/your-bot-project` with the full path to your project directory and `your-username` with your actual username.
 
-2. **Marketplace**:
-   - Users can list items with details and a UPI ID. When a buyer makes a purchase, they provide the UPI transaction ID for verification. The seller confirms the sale, and the bot processes the payment (with a 25% commission).
+2. **Enable and Start the Service**:
 
-3. **Subscriptions**:
-   - Users can subscribe to the prediction service through Razorpay. The bot automatically handles the subscription duration and sends predictions at the selected interval.
+   - **Reload `systemd` to recognize the new service**:
+   ```sh
+   sudo systemctl daemon-reload
+   ```
 
-4. **Admin Panel**:
-   - Admins can manage subscription prices, send announcements, and view subscriptions. These features ensure that the service remains flexible and responsive to user needs.
+   - **Start the bot service**:
+   ```sh
+   sudo systemctl start yourbot
+   ```
 
-## Deployment
+   - **Enable the service to start on boot**:
+   ```sh
+   sudo systemctl enable yourbot
+   ```
 
-To deploy this bot on Heroku:
+3. **Check Service Status**:
+   ```sh
+   sudo systemctl status yourbot
+   ```
 
-1. **Create a `Procfile`** in your repository:
-   ```text
-   worker: python bot.py
+   - This will show you the status of your bot service and any errors if it failed to start.
 
-## Features
+### 5. **Managing the Bot**
 
-- **Cryptocurrency Price Predictions**: 
-  - Fetches historical price data for various cryptocurrencies using the CoinGecko API.
-  - Performs advanced technical analysis using TA-Lib indicators like Moving Averages, RSI, and Bollinger Bands.
-  - Provides users with real-time buy, sell, or hold recommendations based on the analysis.
+- **Start the Bot**:
+  ```sh
+  sudo systemctl start yourbot
+  ```
 
-- **Subscription Management**:
-  - Users can subscribe to receive real-time cryptocurrency predictions by making payments through Razorpay.
-  - Handles payment processing with success and cancel URLs.
+- **Stop the Bot**:
+  ```sh
+  sudo systemctl stop yourbot
+  ```
 
-- **Marketplace**:
-  - Users can list items for sale and make purchases within a simple marketplace system.
-  - Payment verification and notifications for buyers and sellers.
+- **Restart the Bot**:
+  ```sh
+  sudo systemctl restart yourbot
+  ```
 
-- **Admin Features**:
-  - Special commands for admins to manage subscriptions, prices, and announcements.
+- **View Logs**:
+  ```sh
+  sudo journalctl -u yourbot.service -f
+  ```
 
-- **Webhook-Based Updates**:
-  - Efficient handling of Telegram updates using webhooks for better performance on Heroku.
+### 6. **Updating the Bot**
 
-## Prerequisites
+To update your bot with changes from GitHub:
 
-- Python 3.7+
-- Telegram Bot API Token (from BotFather)
-- Razorpay API Keys
-- Heroku Account
+1. **Pull the Latest Changes**:
+   ```sh
+   cd /path/to/your-bot-project
+   git pull origin main
+   ```
 
-## Setup Instructions
+2. **Restart the Bot**:
+   ```sh
+   sudo systemctl restart yourbot
+   ```
 
-### 1. Clone the Repository
+### Summary
 
-```bash
-git clone https://github.com/yourusername/your-repo-name.git
-cd your-repo-name
+- **Environment Setup**: Python, pip, virtual environment, Git.
+- **Deployment**: Clone your GitHub repository, set up the bot using a virtual environment, and manage the bot using `systemd` for automatic startup and reliability.
+- **Management**: Control the bot with `systemctl` commands and monitor its status.
 
+This setup ensures your bot runs smoothly on your Ubuntu VPS, and it can automatically restart if your server reboots or if the bot encounters an error.
