@@ -8,10 +8,10 @@ import talib
 import requests
 
 # Initialize the bot with your Telegram API token
-bot = telebot.TeleBot("6736371777:AAE1I-Blq7ZU5e-KSOeKLvzpD89zybfWueg")
+bot = telebot.TeleBot("YOUR_TELEGRAM_BOT_TOKEN")
 
 # Admin and Group Chat IDs for security
-ADMIN_IDS = [6736371777, 7356218624, 7010512361]  # Replace with your actual Telegram user IDs
+ADMIN_IDS = [ 6736371777, 7356218624, 7010512361 ]  # Replace with your actual Telegram user IDs
 GROUP_CHAT_ID = 1002052697876  # Replace with your actual group chat ID where notifications go
 
 # User and marketplace data storage
@@ -86,6 +86,9 @@ def confirm_payment(message):
 
 def process_payment_confirmation(message):
     user_id = message.chat.id
+    if not message.photo:
+        bot.reply_to(message, "Please send a valid screenshot.")
+        return
     user_data[user_id]['payment_screenshot'] = message.photo[-1].file_id
     bot.send_message(user_id, "Thank you for the payment details. Please wait for admin approval to activate your subscription.")
 
@@ -176,7 +179,7 @@ def save_video(message):
         if command not in ['/start', '/subscribe', '/confirm_payment', '/marketplace']:
             bot.reply_to(message, "Invalid command. Please enter a valid command.")
             return
-                bot.send_message(message.chat.id, f"Please upload the video for the command {command}.")
+        bot.send_message(message.chat.id, f"Please upload the video for the command {command}.")
         bot.register_next_step_handler(message, lambda msg: attach_video_to_command(msg, command))
     except IndexError:
         bot.reply_to(message, "Please specify a command.")
@@ -193,7 +196,6 @@ def attach_video_to_command(message, command):
 def marketplace(message):
     user_id = message.chat.id
     bot.reply_to(message, "Welcome to the Marketplace! You can list items or browse and buy items. Use /list_item to add your item or /view_items to see what's available.")
-
 @bot.message_handler(commands=['list_item'])
 def list_item(message):
     bot.send_message(message.chat.id, "Please send the item details in the format: Name, Description, Price.")
@@ -214,8 +216,10 @@ def save_item(message):
         }
         bot.send_message(user_id, f"Item '{item_name}' has been listed successfully with ID: {item_id}. Please note that a 25% commission will be deducted from the selling price.")
 
+        # Notify the seller of the commission
+        bot.send_message(user_id, f"Your item '{item_name}' requires admin approval before being available in the marketplace. Please note that 25% of the selling price will be deducted as commission.")
+
         if 'iphone' in item_name.lower():
-            bot.send_message(user_id, f"Your item '{item_name}' requires admin approval before being available in the marketplace.")
             # Notify admins for approval
             for admin_id in ADMIN_IDS:
                 keyboard = types.InlineKeyboardMarkup()
@@ -272,18 +276,18 @@ def show_item_details(message):
         bot.reply_to(message, "This item is no longer available.")
         return
 
-    admin_username = "admin_username"  # Replace with the actual admin username or logic to fetch the correct one
+    admin_username = "@sale2xx"  # Admin username that will handle item purchases
 
     item_details = (
         f"📦 *Item Details:*\n\n"
         f"Name: {item['name']}\n"
         f"Description: {item['description']}\n"
         f"Price: {item['price']} INR\n\n"
-        f"To purchase this item, please contact the admin: @{admin_username}"
+        f"To purchase this item, please contact the admin: {admin_username}"
     )
     bot.send_message(message.chat.id, item_details, parse_mode='Markdown')
 
-# Admin command to show number of users and customers
+# Admin command to show the number of users and customers
 @bot.message_handler(commands=['stats'])
 def stats(message):
     if message.chat.id not in ADMIN_IDS:
@@ -302,18 +306,45 @@ def stats(message):
     )
     bot.send_message(message.chat.id, stats_text, parse_mode='Markdown')
 
-# Example command handlers (you can add more handlers as needed)
-@bot.message_handler(commands=['predictions'])
-def predictions(message):
+# Help command to assist users
+@bot.message_handler(commands=['help'])
+def help_command(message):
+    help_text = (
+        "👋 *Help and Support*\n\n"
+        "For any issues, please contact us or join our support group.\n\n"
+        "Use /feedback to report any issues or provide feedback."
+    )
+    bot.send_message(message.chat.id, help_text, parse_mode='Markdown')
+
+# Feedback command to collect user feedback
+@bot.message_handler(commands=['feedback'])
+def feedback(message):
     user_id = message.chat.id
-    if not user_data.get(user_id, {}).get('subscription_active', False):
-        bot.reply_to(message, "You need an active subscription to view predictions. Please subscribe using /subscribe.")
-        return
+    bot.send_message(user_id, "Please send your feedback or report any issues.")
+    bot.register_next_step_handler(message, save_feedback)
 
-    # Example of enhanced prediction logic
-    prediction_text = "Sample prediction based on current data (logic to be expanded)."
-    bot.send_message(user_id, prediction_text)
+def save_feedback(message):
+    feedback_text = message.text
+    user_id = message.chat.id
 
+    # Forward the feedback to all admins
+    for admin_id in ADMIN_IDS:
+        bot.send_message(admin_id, f"Feedback from user {user_id}: {feedback_text}")
+
+    bot.reply_to(message, "Thank you for your feedback!")
+
+# Support command to link to the support group
+@bot.message_handler(commands=['support'])
+def support(message):
+    support_group_link = "https://t.me/your_support_group"  # Replace with your actual support group link
+    support_text = (
+        "🚑 *Support Group*\n\n"
+        "If you need help or have any questions, join our support group here:\n"
+        f"[Join Support Group]({support_group_link})"
+    )
+    bot.send_message(message.chat.id, support_text, parse_mode='Markdown')
+
+# Enhanced prediction system
 def fetch_historical_data(crypto):
     try:
         response = requests.get(f"https://api.coingecko.com/api/v3/coins/{crypto}/market_chart?vs_currency=usd&days=30")
@@ -358,15 +389,15 @@ def real_time_prediction(user_id):
         prices = fetch_historical_data(crypto)
         if prices is not None:
             advanced_prediction = advanced_prediction_logic(prices)
-            prediction_text += f"🔮 {crypto.capitalize()} Advanced Prediction:\n"
+                        prediction_text += f"🔮 {crypto.capitalize()} Advanced Prediction:\n"
             prediction_text += advanced_prediction + "\n"
 
             current_price = prices[-1]
-                        avg_price = np.mean(prices)
+            avg_price = np.mean(prices)
             if current_price > avg_price * 1.05:
                 prediction_text += "🟢 Advice: Consider Selling, price is above average.\n"
             elif current_price < avg_price * 0.95:
-                prediction_text += " 🔴 Advice: Consider Buying, price is below average.\n"
+                prediction_text += "🔴 Advice: Consider Buying, price is below average.\n"
             else:
                 prediction_text += "🟡 Advice: Hold, price is near average.\n"
         else:
@@ -443,3 +474,5 @@ def fallback(message):
 # Start the bot polling
 if __name__ == "__main__":
     bot.polling(none_stop=True)
+
+
