@@ -396,28 +396,27 @@ def real_time_prediction(user_id):
     for crypto in ["bitcoin", "ethereum", "litecoin", "ripple", "gold", "usd", "inr", "rub"]:
         prices = fetch_historical_data(crypto)
                 
-        if prices is not None:
-            advanced_prediction = advanced_prediction_logic(prices)
-            prediction_text += f"🔮 {crypto.capitalize()} Advanced Prediction:\n"
-            prediction_text += advanced_prediction + "\n"
+if prices is not None:
+    advanced_prediction = advanced_prediction_logic(prices)
+    prediction_text += f"🔮 {crypto.capitalize()} Advanced Prediction:\n"
+    prediction_text += advanced_prediction + "\n"
 
-            current_price = prices[-1]
-            avg_price = np.mean(prices)
-            if current_price > avg_price * 1.05:
-                prediction_text += "🟢 Advice: Consider Selling, price is above average.\n"
-            elif current_price < avg_price * 0.95:
-                prediction_text += "🔴 Advice: Consider Buying, price is below average.\n"
-            else:
-                prediction_text += "🟡 Advice: Hold, price is near average.\n"
-        else:
-            prediction_text += f"Error fetching data for {crypto}.\n"
+    current_price = prices[-1]
+    avg_price = np.mean(prices)
+    if current_price > avg_price * 1.05:
+        prediction_text += "🟢 Advice: Consider Selling, price is above average.\n"
+    elif current_price < avg_price * 0.95:
+        prediction_text += "🔴 Advice: Consider Buying, price is below average.\n"
+    else:
+        prediction_text += "🟡 Advice: Hold, price is near average.\n"
+else:
+    prediction_text += f"Error fetching data for {crypto}.\n"
 
-    bot.send_message(user_id, prediction_text)
+bot.send_message(user_id, prediction_text)
 
-    # Set up the next prediction based on the user-defined interval
-    interval = user_data.get(user_id, {}).get('interval', 60)  # Default to 60 minutes
-    Timer(interval * 60, real_time_prediction, [user_id]).start()
-
+# Set up the next prediction based on the user-defined interval
+interval = user_data.get(user_id, {}).get('interval', 60)  # Default to 60 minutes
+Timer(interval * 60, real_time_prediction, [user_id]).start()
 @bot.message_handler(commands=['set_interval'])
 def set_interval(message):
     user_id = message.chat.id
