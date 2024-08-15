@@ -395,7 +395,8 @@ def real_time_prediction(user_id):
 
     for crypto in ["bitcoin", "ethereum", "litecoin", "ripple", "gold", "usd", "inr", "rub"]:
         prices = fetch_historical_data(crypto)
-                if prices is not None:
+                
+        if prices is not None:
             advanced_prediction = advanced_prediction_logic(prices)
             prediction_text += f"🔮 {crypto.capitalize()} Advanced Prediction:\n"
             prediction_text += advanced_prediction + "\n"
@@ -482,4 +483,3 @@ def fallback(message):
 # Start the bot polling
 if __name__ == "__main__":
     bot.polling(none_stop=True)
-
