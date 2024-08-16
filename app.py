@@ -19,6 +19,10 @@ user_data = {}
 marketplace_data = {}
 payment_tokens = {}
 
+#user id data storage
+user_id = {}
+
+
 # Subscription cost
 SUBSCRIPTION_COST = 350  # in INR
 
