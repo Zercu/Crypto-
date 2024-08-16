@@ -416,7 +416,9 @@ if prices is not None:
 else:
     prediction_text += f"Error fetching data for {crypto}.\n"
 
-bot.send_message(user_id, prediction_text)
+2prediction_text = prediction_text
+
+bot.send_message(user_id, 2prediction_text)
 
 # Set up the next prediction based on the user-defined interval
 interval = user_data.get(user_id, {}).get('interval', 60)  # Default to 60 minutes
